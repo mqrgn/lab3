@@ -151,9 +151,55 @@ def show_message(msg, color, y_offset=0):
     screen.blit(message, rect)
 
 
-# --- ИНИЦИАЛИЗАЦИЯ ---
 
 pygame.init()
+temp_screen = pygame.display.set_mode((640, 480))
+pygame.display.set_caption("Выбор параметров окна")
+
+font_big = pygame.font.SysFont("bahnschrift", 32)
+font_small = pygame.font.SysFont("bahnschrift", 22)
+
+window_sizes = [
+    ("1 — 640 x 480", 640, 480),
+    ("2 — 800 x 600", 800, 600),
+    ("3 — 1024 x 768", 1024, 768)
+]
+
+chosen = False
+while not chosen:
+    temp_screen.fill((0, 0, 0))
+
+    title = font_big.render("Выберите размер окна:", True, (255, 255, 255))
+    temp_screen.blit(title, (320 - title.get_width() // 2, 80))
+
+    y = 180
+    for text, w, h in window_sizes:
+        item = font_small.render(text, True, (255, 255, 255))
+        temp_screen.blit(item, (320 - item.get_width() // 2, y))
+        y += 40
+
+    pygame.display.flip()
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            quit()
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_1:
+                SCREEN_WIDTH, SCREEN_HEIGHT = 640, 480
+                chosen = True
+            elif event.key == pygame.K_2:
+                SCREEN_WIDTH, SCREEN_HEIGHT = 800, 600
+                chosen = True
+            elif event.key == pygame.K_3:
+                SCREEN_WIDTH, SCREEN_HEIGHT = 1024, 768
+                chosen = True
+
+temp_screen = None
+pygame.display.quit()
+pygame.display.init()
+
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption('Змейка')
 clock = pygame.time.Clock()
@@ -165,23 +211,19 @@ INITIAL_HIGH_SCORE = load_high_score()
 game_data = reset_game(INITIAL_HIGH_SCORE)
 current_game_state = game_data['game_state']
 
-# --- ОСНОВНАЯ ИГРОВАЯ ПЕТЛЯ ---
 
 running = True
 while running:
 
-    # 1. ОБРАБОТКА СОБЫТИЙ
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.KEYDOWN:
 
-            # Общее управление
             if event.key == pygame.K_SPACE:
                 if current_game_state == GAME_STATE_START_SCREEN:
                     current_game_state = GAME_STATE_RUNNING
                 elif current_game_state == GAME_STATE_GAME_OVER:
-                    # Начать новую игру
                     game_data = reset_game(game_data['high_score'])
                     current_game_state = GAME_STATE_RUNNING
 
@@ -192,7 +234,6 @@ while running:
                 else:
                     current_game_state = GAME_STATE_RUNNING
 
-            # Управление змейкой (только в режиме RUNNING)
             if current_game_state == GAME_STATE_RUNNING:
                 if event.key == pygame.K_UP and game_data['snake_direction'] != 'DOWN':
                     game_data['snake_direction'] = 'UP'
@@ -203,10 +244,9 @@ while running:
                 elif event.key == pygame.K_RIGHT and game_data['snake_direction'] != 'LEFT':
                     game_data['snake_direction'] = 'RIGHT'
 
-    # 2. ОБНОВЛЕНИЕ СОСТОЯНИЯ
     if current_game_state == GAME_STATE_RUNNING:
 
-        # 2.1. Движение змейки
+        # Движение змейки
         if game_data['snake_direction'] == 'UP':
             game_data['snake_pos'][1] -= BLOCK_SIZE
         elif game_data['snake_direction'] == 'DOWN':
@@ -216,7 +256,7 @@ while running:
         elif game_data['snake_direction'] == 'RIGHT':
             game_data['snake_pos'][0] += BLOCK_SIZE
 
-        # 2.2. Телепортация через стены
+        # Телепортация через стены
         if game_data['snake_pos'][0] < 0:
             game_data['snake_pos'][0] = SCREEN_WIDTH - BLOCK_SIZE
         elif game_data['snake_pos'][0] >= SCREEN_WIDTH:
@@ -230,7 +270,6 @@ while running:
         # Добавляем новую голову
         game_data['snake_body'].insert(0, list(game_data['snake_pos']))
 
-        # 2.3. Проверка на еду
         eaten = False
 
         # Проверка обычной еды
@@ -239,20 +278,19 @@ while running:
             game_data['score'] += 1
             eaten = True
 
-        # *** ИСПРАВЛЕНИЕ: Проверка бонусной еды ***
-        # Нужно сравнивать X с X, и Y с Y
+        # Проверка бонусной еды
         if game_data['bonus_food_pos'] and \
                 game_data['snake_pos'][0] == game_data['bonus_food_pos'][0] and \
                 game_data['snake_pos'][1] == game_data['bonus_food_pos'][1]:
-            game_data['score'] += 5  # Больше очков
+            game_data['score'] += 5
             game_data['bonus_food_pos'] = None
             game_data['bonus_food_spawn_time'] = 0
             eaten = True  # Еда съедена
 
         if eaten:
-            if EAT_SOUND: EAT_SOUND.play()
+            if EAT_SOUND:
+                EAT_SOUND.play()
 
-            # Увеличение скорости
             if game_data['score'] % SPEED_INCREASE_INTERVAL == 0 and game_data['score'] > 0:
                 game_data['current_speed'] += SPEED_INCREASE_AMOUNT
 
@@ -265,36 +303,34 @@ while running:
                 game_data['bonus_food_spawn_time'] = time.time()
 
         else:
-            # Еда не съедена: удаляем хвост
+            # Еда не съедена, удаляем хвост
             game_data['snake_body'].pop()
 
-        # 2.4. Таймер бонусной еды
+        # Таймер бонусной еды
         if game_data['bonus_food_pos'] and (time.time() - game_data['bonus_food_spawn_time'] > BONUS_FOOD_LIFETIME):
             game_data['bonus_food_pos'] = None
             game_data['bonus_food_spawn_time'] = 0
 
-        # 2.5. Проверки на столкновение
 
-        # Столкновение с собственным телом
+        # Столкновение
         for block in game_data['snake_body'][1:]:
             if game_data['snake_pos'][0] == block[0] and game_data['snake_pos'][1] == block[1]:
                 current_game_state = GAME_STATE_GAME_OVER
                 break
 
-        # Если проиграли, проигрываем звук
+        # Звук проигрыша
         if current_game_state == GAME_STATE_GAME_OVER:
             if CRASH_SOUND:
                 CRASH_SOUND.play()
 
-        # 2.6. Обновление рекорда
+        # Обновление рекорда
         if game_data['score'] > game_data['high_score']:
             game_data['high_score'] = game_data['score']
             save_high_score(game_data['high_score'])
 
-    # 3. Отрисовка
+    # Отрисовка
     screen.fill(BLACK)
 
-    # Отрисовка игровых элементов
     if current_game_state != GAME_STATE_START_SCREEN:
         draw_elements(game_data)
         show_score(game_data['score'], game_data['high_score'], game_data['current_speed'])
@@ -320,9 +356,7 @@ while running:
     if current_game_state == GAME_STATE_RUNNING:
         clock.tick(game_data['current_speed'])
     else:
-        # Снижаем частоту обновления для меню и паузы
         clock.tick(15)
 
-# Корректное завершение работы
 pygame.quit()
 quit()
